@@ -27,6 +27,20 @@ jobs:
             python3 -c "import yaml, sys; yaml.safe_load(open('$f'))" 2>/dev/null || echo "Invalid YAML: $f"
           done
 
+      # setup-node's own .tool-versions parsing picks up comment lines, so
+      # read the pinned version explicitly.
+      - name: Read pinned Node version
+        id: node
+        run: echo "version=$(awk '$1 == "nodejs" { print $2 }' .tool-versions)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.node.outputs.version }}
+
+      - name: Run unit tests
+        run: npm test
+
       # Add project-specific validation steps below, e.g.:
       # - name: Run tests
       #   run: go test ./...

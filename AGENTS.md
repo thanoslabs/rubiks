@@ -1,13 +1,15 @@
-# CLAUDE.md
+# AGENTS.md
 
 ## Purpose
 
-GitHub template repository for bootstrapping `thanoslabs` projects. Provides Renovate-managed dependency updates, branch protection, CODEOWNERS, license, and standard `.gitignore` as a starting point — not a runnable application.
+Lightweight interactive Rubik's cube, served as a static page (no backend, no build step). Bootstrapped from the `thanoslabs` template, so it also carries Renovate, branch protection, CODEOWNERS, and the label-driven release workflow.
 
 ## Tech stack
 
+- **Vanilla JavaScript ES modules** under `app/`, loaded directly by the browser — no bundler, no npm runtime dependencies
+- **Node.js** (version in `.tool-versions`) only to run unit tests with the built-in `node:test` runner
 - **Renovate** for dependency updates (managers: `docker-compose`, `github-actions`, `gomod`)
-- **GitHub Actions** for the Renovate, release, and docs workflows
+- **GitHub Actions** for CI (unit tests via `npm test` on PRs and pushes to `main`) and the Renovate, release, and docs workflows
 - **[nebula-md](https://github.com/thanoslabs/nebula-md)** for building `docs/` into a static markdown site
 - **MIT License**
 
@@ -16,6 +18,12 @@ GitHub template repository for bootstrapping `thanoslabs` projects. Provides Ren
 ```
 .
 ├── .agents/                  # Agent instructions and skills
+├── app/                      # Static site root
+│   └── js/
+│       ├── cube.js           # Cube state (54-facelet string), geometry-derived moves, isSolved
+│       ├── notation.js       # Parse/format/invert standard notation (U D L R F B M E S x y z, ' 2)
+│       └── scramble.js       # WCA-style 25-move random-move scrambles
+├── test/                     # node:test unit tests (*.test.js)
 ├── .github/
 │   ├── CODEOWNERS            # @thanoslabs/reviewers
 │   ├── renovate-config.js    # Renovate platform config
@@ -28,10 +36,20 @@ GitHub template repository for bootstrapping `thanoslabs` projects. Provides Ren
 ├── AGENTS.md                 # Operational expectations for humans and AI agents
 ├── CONTRIBUTING.md
 ├── LICENSE
+├── package.json              # Test script only; no dependencies
 ├── README.md
 ├── SECURITY.md
 └── renovate.json             # Renovate settings
 ```
+
+## Commands
+
+| Task | Command |
+|---|---|
+| Install tools | `mise install` (or `asdf install`) |
+| Unit tests | `npm test` |
+
+No linter or type checker is configured; keep modules dependency-free and document public functions with JSDoc.
 
 ## Conventions
 
