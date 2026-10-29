@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rubik's Cube</title>
+  <meta name="description" content="A lightweight interactive Rubik's cube: scramble it, solve it, celebrate.">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./css/style.css">
+  <script type="module" src="./js/main.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Rubik's Cube</h1>
+    <p id="status" role="status"></p>
+  </header>
+  <main>
+    <div id="scene" class="scene" role="group"
+      aria-label="Rubik's cube. Drag a sticker to turn its layer; drag the background to rotate the view."></div>
+    <section class="panel" aria-label="Controls">
+      <div class="stats">
+        <div><span class="label">Moves</span><span id="move-count">0</span></div>
+        <div><span class="label">Time</span><span id="timer">0:00.00</span></div>
+      </div>
+      <p class="scramble"><span class="label">Scramble</span><code id="scramble-text">—</code></p>
+      <div class="actions">
+        <button id="random-scramble" type="button" class="primary">Random scramble</button>
+        <button id="reset" type="button">Reset</button>
+      </div>
+      <form id="scramble-form">
+        <label for="scramble-input" class="label">Set scramble</label>
+        <div class="row">
+          <input id="scramble-input" aria-describedby="scramble-error" autocomplete="off" spellcheck="false" placeholder="R U R' U' F2 …">
+          <button type="submit">Apply</button>
+        </div>
+        <p id="scramble-error" class="error" aria-live="polite"></p>
+      </form>
+      <div id="move-buttons" class="move-buttons" role="group" aria-label="Moves"></div>
+      <p class="hint">Keys: U D L R F B, M E S slices, X Y Z rotate the cube. Hold Shift for prime (').</p>
+    </section>
+  </main>
+  <div id="banner" class="banner" role="alertdialog" aria-labelledby="banner-text" hidden>
+    <p class="banner-title">🎉 Solved!</p>
+    <p id="banner-text"></p>
+    <div class="actions">
+      <button id="banner-again" type="button" class="primary">Scramble again</button>
+      <button id="banner-close" type="button">Close</button>
+    </div>
+  </div>
+</body>
+</html>
