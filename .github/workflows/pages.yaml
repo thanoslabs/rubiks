@@ -1,0 +1,101 @@
+name: Pages
+
+# Deploys the cube app at the GitHub Pages root and the nebula-md docs site
+# (built from docs/) under /docs/. A repo has a single Pages site, and
+# nebula-md's reusable workflow always deploys on its own, so its build steps
+# are inlined here instead. Pages deploys only run for public repositories.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "docs/**"
+      - ".github/workflows/pages.yaml"
+  workflow_dispatch:
+
+# Only one Pages deployment at a time; let an in-flight deploy finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  # nebula-md has no releases yet; pin a commit for reproducible docs builds.
+  # Not tracked by Renovate: bump by hand to pick up nebula-md changes.
+  NEBULA_MD_REF: 671550be764f7bedcbb0975d06bd6b85ce37183b
+
+jobs:
+  build:
+    # Private repos skip publishing (GitHub Pages on private repos needs a paid plan
+    # and would expose internal docs publicly on free plans).
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Checkout nebula-md (source only)
+        uses: actions/checkout@v4
+        with:
+          repository: thanoslabs/nebula-md
+          ref: ${{ env.NEBULA_MD_REF }}
+          path: .nebula
+          # Non-cone mode so only src/ is checked out: nebula-md's root .env holds
+          # its author's personal site config, which the binary would otherwise load.
+          sparse-checkout: src/
+          sparse-checkout-cone-mode: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: .nebula/src/go.mod
+          cache-dependency-path: .nebula/src/go.sum
+
+      - name: Build nebula-md
+        working-directory: .nebula/src
+        run: CGO_ENABLED=0 go build -buildvcs=false -o nebula .
+
+      # Same vault/output layout as nebula-md's own deploy workflow. All config is
+      # explicit so the build doesn't depend on any .env in the checkout.
+      - name: Build docs
+        working-directory: .nebula
+        env:
+          NEBULA_SITE_NAME: ${{ github.event.repository.name }}
+          NEBULA_SITE_THEME: dark
+          NEBULA_CLEAN_URLS: "true"
+          NEBULA_GRAPH_MODE: 2d
+          NEBULA_FEATURE_AUTO_FOLDER_MOC: "false"
+          NEBULA_INPUT: vault
+          NEBULA_OUTPUT: output
+        run: |
+          cp -R ../docs vault
+          ./src/nebula
+
+      - name: Assemble site
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          cp -R app/. _site/
+          cp -R .nebula/output _site/docs
+          test -f _site/index.html
+          test -f _site/docs/index.html
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
