@@ -1,0 +1,9 @@
+{
+  "name": "rubiks",
+  "private": true,
+  "type": "module",
+  "description": "Lightweight interactive Rubik's cube (static site)",
+  "scripts": {
+    "test": "node --test"
+  }
+}
