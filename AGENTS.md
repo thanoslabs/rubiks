@@ -18,8 +18,16 @@ Lightweight interactive Rubik's cube, served as a static page (no backend, no bu
 ```
 .
 ├── .agents/                  # Agent instructions and skills
-├── app/                      # Static site root
+├── app/                      # Static site root (serve this directory as-is)
+│   ├── index.html
+│   ├── css/style.css
 │   └── js/
+│       ├── main.js           # Page wiring: controls, keyboard, turn queue, localStorage
+│       ├── view.js           # CSS 3D rendering, turn animation, pointer drag handling (DOM)
+│       ├── celebrate.js      # Confetti canvas (DOM)
+│       ├── session.js        # Attempt status, move count, timer; persisted as move history (pure)
+│       ├── drag.js           # Screen geometry: sticker drag -> layer turn, turn -> CSS rotation (pure)
+│       ├── queue.js          # Sequential task queue for turn animations (pure)
 │       ├── cube.js           # Cube state (54-facelet string), geometry-derived moves, isSolved
 │       ├── notation.js       # Parse/format/invert standard notation (U D L R F B M E S x y z, ' 2)
 │       └── scramble.js       # WCA-style 25-move random-move scrambles
@@ -48,8 +56,9 @@ Lightweight interactive Rubik's cube, served as a static page (no backend, no bu
 |---|---|
 | Install tools | `mise install` (or `asdf install`) |
 | Unit tests | `npm test` |
+| Run locally | `python3 -m http.server -d app 8000` → http://localhost:8000 |
 
-No linter or type checker is configured; keep modules dependency-free and document public functions with JSDoc.
+No linter or type checker is configured; keep modules dependency-free and document public functions with JSDoc. Keep logic in the pure modules (no DOM access at import time) so it stays unit-testable; `main.js`, `view.js`, and `celebrate.js` are the only DOM modules. Use relative URLs only — the site is served from a subpath on GitHub Pages.
 
 ## Conventions
 
