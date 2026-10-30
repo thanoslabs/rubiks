@@ -10,9 +10,11 @@ on:
         required: false
         type: string
 
-# Needed to push the release tag and create the GitHub release.
+# contents: push the release tag and create the GitHub release.
+# packages: push the container image to GHCR.
 permissions:
   contents: write
+  packages: write
 
 # Serialize releases so back-to-back merges to main don't race on tag creation.
 concurrency:
@@ -21,6 +23,8 @@ concurrency:
 
 jobs:
   release:
+    # Releases (tags, :latest) only ever come from main, including manual runs.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -77,6 +81,41 @@ jobs:
           echo "base=${BASE} labels=[${LABELS:-none}] bump=${LEVEL} version=${VERSION}"
           echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
 
+      # Publish the image before tagging so a failed build doesn't leave a
+      # tag without its image; the run can simply be retried.
+      # GHCR image names must be lowercase; owner/repo names may not be.
+      - name: Compute image name
+        id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "${GITHUB_OUTPUT}"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ steps.image.outputs.name }}:${{ steps.version.outputs.version }}
+            ${{ steps.image.outputs.name }}:latest
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=MIT
+
       - name: Tag release
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -87,12 +126,6 @@ jobs:
           git tag -a "${VERSION}" -m "Release ${VERSION}"
           git push origin "refs/tags/${VERSION}"
 
-      # TODO(project): build and publish release artifacts for this version, e.g.:
-      #   - docker build -t <registry>/<image>:${VERSION} . && docker push <registry>/<image>:${VERSION}
-      #   - go build / goreleaser release
-      #   - npm publish / cargo publish
-      # Then attach files to the release with: gh release upload "${VERSION}" <files...>
-      #
       # NOTE: pushes/creations made with the default GITHUB_TOKEN do NOT trigger
       # other workflows (e.g. on: push of tags, on: release). If release events
       # must fan out to further automation, use a PAT or a GitHub App token

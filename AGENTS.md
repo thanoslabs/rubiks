@@ -8,9 +8,10 @@ Lightweight interactive Rubik's cube, served as a static page (no backend, no bu
 
 - **Vanilla JavaScript ES modules** under `app/`, loaded directly by the browser — no bundler, no npm runtime dependencies
 - **Node.js** (version in `.tool-versions`) only to run unit tests with the built-in `node:test` runner
-- **Renovate** for dependency updates (managers: `docker-compose`, `github-actions`, `gomod`)
-- **GitHub Actions** for CI (unit tests via `npm test` on PRs and pushes to `main`) and the Renovate, release, and docs workflows
-- **[nebula-md](https://github.com/thanoslabs/nebula-md)** for building `docs/` into a static markdown site
+- **nginx** (`nginxinc/nginx-unprivileged`, Alpine) to serve `app/` in the self-hosting container image
+- **Renovate** for dependency updates (managers: `asdf`, `docker-compose`, `dockerfile`, `github-actions`, `gomod`)
+- **GitHub Actions** for CI (unit tests and an image build + smoke test on PRs), GitHub Pages deploys, releases (tag + GHCR image), and Renovate
+- **[nebula-md](https://github.com/thanoslabs/nebula-md)** for building `docs/` into a static markdown site, served under `/docs/` on Pages
 - **MIT License**
 
 ## Structure
@@ -36,10 +37,13 @@ Lightweight interactive Rubik's cube, served as a static page (no backend, no bu
 │   ├── CODEOWNERS            # @thanoslabs/reviewers
 │   ├── renovate-config.js    # Renovate platform config
 │   └── workflows/
-│       ├── docs.yaml         # nebula-md docs build + GitHub Pages deploy
-│       ├── release.yaml      # Label-driven SemVer release workflow
+│       ├── ci.yml            # Unit tests; image build + smoke test
+│       ├── pages.yaml        # Pages: app at root + nebula-md docs at /docs/
+│       ├── release.yaml      # Label-driven SemVer release + GHCR image publish
 │       └── renovate.yaml     # Renovate workflow
 ├── docs/                     # Project documentation (markdown source for the docs site)
+├── nginx/                    # nginx server config + security headers for the image
+├── Dockerfile                # Self-hosting image (serves app/ on :8080, non-root)
 ├── .tool-versions            # Pinned language/tool versions (asdf/mise)
 ├── AGENTS.md                 # Operational expectations for humans and AI agents
 ├── CONTRIBUTING.md
@@ -57,6 +61,7 @@ Lightweight interactive Rubik's cube, served as a static page (no backend, no bu
 | Install tools | `mise install` (or `asdf install`) |
 | Unit tests | `npm test` |
 | Run locally | `python3 -m http.server -d app 8000` → http://localhost:8000 |
+| Container | `docker build -t rubiks . && docker run --rm -p 8080:8080 rubiks` |
 
 No linter or type checker is configured; keep modules dependency-free and document public functions with JSDoc. Keep logic in the pure modules (no DOM access at import time) so it stays unit-testable; `main.js`, `view.js`, and `celebrate.js` are the only DOM modules. Use relative URLs only — the site is served from a subpath on GitHub Pages.
 
@@ -66,8 +71,7 @@ No linter or type checker is configured; keep modules dependency-free and docume
 - Versioning: project artifacts (releases, tags, packages, images) follow [SemVer](https://semver.org/) as bare `X.Y.Z` — no `v` prefix (`1.4.2`, not `v1.4.2`). Bump MAJOR for breaking changes, MINOR for backwards-compatible features, PATCH for fixes.
 - See `AGENTS.md` for full agent workflow, code style, testing, and git/PR guidance.
 - Branch protection: never push directly to `main`; all changes via PR with review.
-- When adapting this template for a new project, update `renovate.json` managers/schedules and enable the repo in the Renovate GitHub App.
-- Project-specific `CLAUDE.md` / `AGENTS.md` content should be filled in once the actual stack is added (`src/`, `tests/`, build commands, etc. are placeholders in `AGENTS.md`, not present here).
+- The app must load nothing from other origins: the image's CSP is `default-src 'self'` (plus `data:` images). Don't add CDNs, inline scripts, or inline `<style>`.
 
 ## Releases
 
@@ -78,11 +82,11 @@ No linter or type checker is configured; keep modules dependency-free and docume
   - `patch` — fixes
   - No label — defaults to a `patch` bump
 - **Manual releases**: a specific version may be cut manually by supplying an explicit `X.Y.Z` version tag when needed (e.g. via a manual workflow dispatch). This bypasses the label-based bump.
-- Release automation lives in `.github/workflows/release.yaml`: it computes the next version, tags, and creates the GitHub release. Building and publishing artifacts (images, binaries) is project-specific and left as a TODO stub in the workflow.
+- Release automation lives in `.github/workflows/release.yaml`: it computes the next version, builds and pushes `ghcr.io/<owner>/<repo>:X.Y.Z` and `:latest` (amd64 + arm64), then tags and creates the GitHub release. It only runs from `main`. The GHCR package must be public, and the org must allow `GITHUB_TOKEN` to create packages (see `docs/self-hosting.md`).
 
 ## Docs
 
 - Project documentation lives in `docs/` as markdown and is the source for the project's docs site. Do not introduce another static site generator (MkDocs, Docusaurus, etc.) — docs are built with [nebula-md](https://github.com/thanoslabs/nebula-md).
-- `.github/workflows/docs.yaml` calls nebula-md's reusable workflow (`thanoslabs/nebula-md/.github/workflows/deploy.yml`) on pushes to `main` that touch `docs/`. Generation happens in CI only — do not commit built HTML.
+- `.github/workflows/pages.yaml` builds nebula-md (pinned commit in `NEBULA_MD_REF`) and places the docs under `/docs/` next to the app at the Pages root. nebula-md's reusable deploy workflow is not used because it deploys on its own and would overwrite the app. Generation happens in CI only — do not commit built HTML.
 - Deployment to GitHub Pages runs only when the repository is **public**; private repos skip the job. Public repos must set **Settings → Pages → Source** to **GitHub Actions**.
 - Pages are Obsidian-flavoured markdown: YAML frontmatter (`title`, `tags`, `date`), `[[wikilinks]]` between pages, and callouts. `docs/index.md` is the site's landing page.

@@ -47,3 +47,22 @@ jobs:
       #
       # - name: Build Docker image
       #   run: docker build .
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t rubiks:ci .
+
+      - name: Smoke test image
+        run: |
+          set -euo pipefail
+          docker run -d --name rubiks -p 8080:8080 rubiks:ci
+          for _ in $(seq 1 20); do curl -fsS -o /dev/null http://localhost:8080/ && break; sleep 0.5; done
+          curl -fsS http://localhost:8080/ | grep -q "<title>Rubik's Cube</title>"
+          curl -fsS -o /dev/null http://localhost:8080/js/main.js
+          curl -fsSI http://localhost:8080/ | grep -qi '^content-security-policy:'
+          test "$(docker exec rubiks id -u)" != "0"

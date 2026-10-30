@@ -12,6 +12,7 @@
   "enabledManagers": [
     "asdf",
     "docker-compose",
+    "dockerfile",
     "github-actions",
     "gomod"
   ],
