@@ -1,0 +1,4 @@
+# Only the static site and its server config belong in the image.
+*
+!app/
+!nginx/
